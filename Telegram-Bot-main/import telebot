@@ -1,0 +1,158 @@
+import telebot
+from telebot import types
+import random
+
+TOKEN = "7197882427:AAFdI41fbrB0OuAlxDW2DV8qWGsSacyPtF8"
+bot = telebot.TeleBot(TOKEN)
+
+# Состояния пользователей
+waiting_for_name = {}
+waiting_for_greeting_response = {}
+waiting_for_animal_answer = {}
+waiting_for_specific_animal = {}
+waiting_for_animal_name = {}
+waiting_for_user_favorite_game = {}
+waiting_for_gta_activity = {}
+waiting_for_ninja_turtle_confirmation = {}
+waiting_for_ninja_turtle_name = {}
+
+# Состояния для игр
+number_game_active = {}
+number_game_attempts = {}
+
+# Состояния для разговора о катании
+waiting_for_user_transport = {}
+waiting_for_skate_type = {}
+waiting_for_tricks_attempt = {}
+waiting_for_tricks_desire = {}
+
+# Загадки
+RIDDLES = [
+    {
+        "question": "Зимой и летом одним цветом. Что это?",
+        "options": ["Снег", "Елка", "Трава", "Небо"],
+        "correct": 1
+    },
+    # ... другие загадки ...
+]
+
+STANDARD_QUESTIONS = {
+    "Как тебя зовут?": lambda msg: bot.send_message(msg.chat.id, "Меня зовут TestBot. А как тебя зовут?", reply_markup=None),
+    "Что ты любишь делать?": lambda msg: bot.send_message(msg.chat.id, "Люблю помогать людям и отвечать на вопросы."),
+    "Какие твои любимые игры?": lambda msg: handle_favorite_games(msg),
+    "На чём ты любишь кататься?": lambda msg: handle_transport_question(msg),
+    "Есть ли у тебя домашнее животное?": lambda msg: handle_pets(msg),
+    "Таблица умножения": lambda msg: show_multiplication_menu(msg),
+    "🎮 Игры": lambda msg: show_games_menu(msg),
+}
+
+def get_correct_form(animal):
+    exceptions = {
+        'черепаха': 'черепаху',
+        'собака': 'собаку',
+        # ... другие исключения ...
+    }
+    return exceptions.get(animal.lower(), animal.lower())
+
+def create_keyboard(buttons):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for button in buttons:
+        markup.add(types.KeyboardButton(button))
+    return markup
+
+def create_inline_keyboard(buttons_data):
+    markup = types.InlineKeyboardMarkup()
+    for button_text, callback_data in buttons_data:
+        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+    return markup
+
+def show_multiplication_menu(msg):
+    numbers = [str(i) for i in range(1, 11)]
+    markup = create_keyboard(numbers + ["🔙 Назад"])
+    bot.send_message(
+        msg.chat.id,
+        "Выбери число для таблицы умножения (1-10):",
+        reply_markup=markup
+    )
+
+def show_multiplication_table(chat_id, number):
+    table = f"✨ Таблица умножения на {number} ✨\n\n"
+    for i in range(1, 11):
+        table += f"{number} × {i} = {number * i}\n"
+    
+    markup = create_keyboard(["Показать другую таблицу", "🔙 Назад"])
+    bot.send_message(chat_id, table, reply_markup=markup)
+
+def show_games_menu(msg):
+    games_buttons = [
+        ("🔢 Угадай число", "game_number"),
+        ("🧩 Загадки", "game_riddles"),
+        ("🔙 Назад в меню", "back_main")
+    ]
+    markup = create_inline_keyboard(games_buttons)
+    bot.send_message(msg.chat.id, "🎮 Выбери игру:", reply_markup=markup)
+
+# ... [остальные функции остаются без изменений] ...
+
+@bot.message_handler(commands=['start'])
+def start_command(message):
+    bot.send_message(
+        message.chat.id,
+        "Привет! Я — TestBot. Начнем наше знакомство?",
+        reply_markup=create_keyboard(STANDARD_QUESTIONS.keys())
+    )
+
+@bot.message_handler(commands=['help'])
+def help_command(message):
+    help_text = """
+🤖 **TestBot - Помощь**
+
+**Команды:**
+• /start — начать общение
+• /help — помощь
+• /restart — перезагрузка
+• /games — меню игр
+
+**Функции:**
+🔢 Таблица умножения
+🎮 Игры: Угадай число, Загадки
+🐢 Общение о питомцах
+"""
+    bot.send_message(message.chat.id, help_text, parse_mode='Markdown')
+
+# ... [остальные обработчики команд] ...
+
+@bot.message_handler(content_types=["text"])
+def handle_any_message(message):
+    chat_id = message.chat.id
+
+    if chat_id in number_game_active:
+        process_number_guess(message)
+        return
+
+    # Обработка таблицы умножения
+    if message.text.isdigit() and 1 <= int(message.text) <= 10:
+        show_multiplication_table(chat_id, int(message.text))
+    elif message.text == "Показать другую таблицу":
+        show_multiplication_menu(message)
+    elif message.text == "🔙 Назад":
+        bot.send_message(
+            chat_id,
+            "Выбери вопрос:",
+            reply_markup=create_keyboard(STANDARD_QUESTIONS.keys())
+        )
+    
+    # [остальные условия обработки сообщений...]
+    elif message.text in STANDARD_QUESTIONS:
+        handler = STANDARD_QUESTIONS[message.text]
+        handler(message)
+    else:
+        bot.send_message(
+            chat_id,
+            "Выбери вариант из меню:",
+            reply_markup=create_keyboard(STANDARD_QUESTIONS.keys())
+        )
+
+if __name__ == '__main__':
+    print("Бот запущен! 🚀")
+    bot.polling(none_stop=True)
